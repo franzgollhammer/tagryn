@@ -1,7 +1,25 @@
 name: Verify Tagryn
 on:
-  push: {}
+  push:
+    paths-ignore:
+      - 'README*.md'
+      - 'CONTRIBUTING.md'
+      - 'docs/ARCHITECTURE.md'
+      - 'docs/RELEASING.md'
+      - '.claude/plans/**'
+      - '.github/workflows/package-preview.yml'
+      - 'scripts/package-preview.mjs'
+      - 'scripts/verify-installed-runtime.mjs'
   pull_request:
+    paths-ignore:
+      - 'README*.md'
+      - 'CONTRIBUTING.md'
+      - 'docs/ARCHITECTURE.md'
+      - 'docs/RELEASING.md'
+      - '.claude/plans/**'
+      - '.github/workflows/package-preview.yml'
+      - 'scripts/package-preview.mjs'
+      - 'scripts/verify-installed-runtime.mjs'
   workflow_dispatch:
 permissions:
   contents: read

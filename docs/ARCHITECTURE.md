@@ -75,9 +75,11 @@ Die UI behält maximal 128 Metadatendokumente beziehungsweise ungefähr 64 MiB J
 
 Die Runtime liegt als Tauri-Bundle-Ressource unter `runtime/`; Rust startet ausschließlich diese aufgelösten Programmpfade. Das ist absichtlich keine Shell-Plugin-Freigabe für beliebige Frontendbefehle. macOS HEIC/AVIF-Vorschauen dürfen zusätzlich das systemeigene `/usr/bin/sips` verwenden. Fehlende Decoder erzeugen eine fehlende Vorschau, keinen Metadaten-Lesefehler.
 
-Die CI-Matrix enthält macOS ARM64, macOS Intel, Windows x64 und Ubuntu x64. Sie baut `.app`, NSIS bzw. `.deb`. Diese Konfiguration ersetzt keinen bestandenen Lauf. Eine universelle macOS-Binärdatei oder Windows-ARM64-Pakete werden noch nicht erzeugt.
+Die CI-Matrix enthält macOS ARM64, macOS Intel, Windows x64 und Ubuntu x64. Sie baut `.app`, NSIS bzw. `.deb`. Ein separater [Paket-Workflow](../.github/workflows/package-preview.yml) verarbeitet diese geprüften Release-Artefakte zu dauerhaften Alpha-Downloads: ein Apple-Silicon-DMG, ein Intel-Mac-App-ZIP, Windows-NSIS und Linux-Debian. Er prüft Installation beziehungsweise Kopieren, mitgelieferte Lizenztexte, Metadaten-Laufzeit und Frontend-Start auf nativen Runnern. Die macOS-Bundles erhalten vollständige Ad-hoc-Signaturen und lassen die optionalen Perl-Bindings `DB_File`, `GDBM_File` und `NDBM_File` weg, damit keine Homebrew-Datenbankbibliotheken vorausgesetzt werden. Ein Guard prüft, dass ExifTool diese Module nicht referenziert. Details und Provenienz: [Release-Prozess](RELEASING.md#preview-installers).
 
-Vor öffentlicher Distribution sind erforderlich:
+Diese Konfiguration ersetzt keinen bestandenen Lauf. Eine universelle macOS-Binärdatei oder Windows-ARM64-Pakete werden noch nicht erzeugt.
+
+Alpha-Vorschaupakete kennzeichnen die noch fehlende Herausgebersignierung und Notarisierung ausdrücklich. Für eine Produktionsdistribution mit verifizierter Herausgeberidentität sind erforderlich:
 
 1. Vollständige CI einschließlich echter Runtime-Verifikation auf allen Zielsystemen erfolgreich ausführen.
 2. Sämtliche ausführbaren Perl-Dateien und nativen Erweiterungen im macOS-Bundle von innen nach außen mit derselben Developer-ID und passenden Hardened-Runtime-Einstellungen signieren; anschließend die App signieren, notarieren und das Ticket anheften. Ein ad-hoc signierter lokaler Build ist kein Distributionsnachweis.

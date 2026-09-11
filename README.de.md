@@ -8,32 +8,36 @@
 
 ## Entwicklungsstand
 
-Dies ist eine ausführbare Version **0.1.0**, keine reine Mockup-Oberfläche. Dateizugriff, Metadaten, Schreibpläne, Backups, Wiederherstellung und Jobhistorie verwenden den echten Rust-Service und das mitgelieferte ExifTool. Der veröffentlichte Stand `v0.1.0-alpha.1` hat [Tests und Paketbau auf allen vier CI-Plattformen bestanden](https://github.com/franzgollhammer/tagryn/actions/runs/34597693265). Die Abnahme auf frischen Endnutzer-Systemen und die Distributionssignierung stehen noch aus. Arbeiten Sie zunächst mit Kopien. Die Anwendung verspricht keine vollständige Anonymisierung.
+Dies ist eine ausführbare Version **0.1.0**, keine reine Mockup-Oberfläche. Dateizugriff, Metadaten, Schreibpläne, Backups, Wiederherstellung und Jobhistorie verwenden den echten Rust-Service und das mitgelieferte ExifTool. Der veröffentlichte Stand `v0.1.0-alpha.1` hat [Tests und Paketbau auf allen vier CI-Plattformen bestanden](https://github.com/franzgollhammer/tagryn/actions/runs/34597693265). Zusätzlich stehen geprüfte Vorschau-Installationspakete bereit. Apple-Notarisierung, Windows-Herausgebersignierung und die Abnahme auf beliebigen Endnutzer-Systemen stehen noch aus. Arbeiten Sie zunächst mit Kopien. Die Anwendung verspricht keine vollständige Anonymisierung.
 
 ## Herunterladen und installieren
 
-Der [Release `v0.1.0-alpha.1`](https://github.com/franzgollhammer/tagryn/releases/tag/v0.1.0-alpha.1) enthält derzeit **nur Quellcode**. Die GitHub-Downloads „Source code (zip)“ und „Source code (tar.gz)“ sind keine Installationsprogramme.
+Laden Sie **Tagryn v0.1.0-alpha.1** direkt über GitHub Releases herunter. Diese Release-Dateien sind dauerhaft verfügbar; ein GitHub-Konto oder Entwicklungswerkzeuge werden nicht benötigt. ExifTool samt Laufzeit ist enthalten.
 
-Zum frühen Ausprobieren gibt es im [erfolgreichen Build dieses Releases](https://github.com/franzgollhammer/tagryn/actions/runs/34597693265) folgende temporäre Downloads:
+| System                                           | Download                                                                                                                                   | Installation                                                                                |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| macOS ab 13.3, Apple Silicon (M-Serie)           | [Apple-Silicon-DMG](https://github.com/franzgollhammer/tagryn/releases/download/v0.1.0-alpha.1/Tagryn_0.1.0-alpha.1_macos_arm64.dmg)       | DMG öffnen und **Tagryn** auf **Applications / Programme** ziehen.                          |
+| macOS ab 13.3, Intel                             | [Intel-App-ZIP](https://github.com/franzgollhammer/tagryn/releases/download/v0.1.0-alpha.1/Tagryn_0.1.0-alpha.1_macos_x64.zip)             | ZIP entpacken und **Tagryn.app** nach **Programme** ziehen.                                 |
+| Windows x64                                      | [Windows-Installer](https://github.com/franzgollhammer/tagryn/releases/download/v0.1.0-alpha.1/Tagryn_0.1.0-alpha.1_windows_x64-setup.exe) | Heruntergeladene `.exe` öffnen, dem Installer folgen und Tagryn über das Startmenü starten. |
+| Ubuntu / kompatibles Debian-basiertes Linux, x64 | [Linux-Debian-Paket](https://github.com/franzgollhammer/tagryn/releases/download/v0.1.0-alpha.1/Tagryn_0.1.0-alpha.1_linux_amd64.deb)      | Heruntergeladenes `.deb` mit den folgenden Befehlen installieren.                           |
 
-| System                                           | Jetzt verfügbar                | Installation                                                                                                                                                                     |
-| ------------------------------------------------ | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Windows x64                                      | Artefakt `tagryn-windows-2025` | ZIP entpacken, `src-tauri/target/release/bundle/nsis/Tagryn_0.1.0_x64-setup.exe` öffnen und dem Installer folgen. Anschließend Tagryn im Startmenü öffnen.                       |
-| Ubuntu / kompatibles Debian-basiertes Linux, x64 | Artefakt `tagryn-ubuntu-22.04` | ZIP entpacken und das enthaltene `.deb` mit dem folgenden Befehl installieren. Der Build lief auf Ubuntu 22.04; die Installation auf anderen Distributionen wurde nicht geprüft. |
-| macOS ab 13.3, Apple Silicon oder Intel          | [Lokal bauen](#macos)          | Die CI-`.app` besteht die Bundle-Signaturprüfung noch nicht. Ein verifiziertes macOS-Installationspaket zum Herunterladen fehlt daher noch.                                      |
+**Erster Start unter macOS:** Falls Sie ein DMG verwendet haben, werfen Sie es aus. Öffnen Sie Tagryn unter Programme. Die App ist ad-hoc signiert, aber nicht von Apple notarisiert; macOS kann den ersten Start blockieren. Wenn Sie dem Download vertrauen, wählen Sie nach dem ersten Startversuch **Systemeinstellungen → Datenschutz & Sicherheit → Dennoch öffnen** und bestätigen Sie. Nutzen Sie diese von Apple vorgesehene [Freigabe für die einzelne App](https://support.apple.com/de-de/102445); deaktivieren Sie Gatekeeper nicht global. Das passende Paket erkennen Sie unter **Apple-Menü → Über diesen Mac**: „Chip“ bedeutet Apple Silicon, „Prozessor: Intel“ bedeutet Intel.
 
-Melden Sie sich bei GitHub an, öffnen Sie den verlinkten Lauf und wählen Sie unten unter **Artifacts** das genannte ZIP. Für [Artefakt-Downloads](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts) ist ein GitHub-Konto erforderlich. Diese Downloads laufen am **25. September 2026** ab. Sind sie nicht mehr verfügbar, verwenden Sie die Anleitung zum lokalen Bauen weiter unten. Dauerhafte Installer sind dem Release noch nicht angehängt.
+**Erster Start unter Windows:** Der Installer hat keine verifizierte Herausgebersignatur. Bei einer SmartScreen-Warnung können Sie, sofern Sie dem Download vertrauen und Windows die Option anbietet, **Weitere Informationen → Trotzdem ausführen** wählen. Lassen Sie die Schutzfunktionen eingeschaltet; verwaltete Geräte können eine Freigabe verhindern. Windows benötigt außerdem die [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/); der Installer kann sie bei Bedarf herunterladen.
 
-Für Linux öffnen Sie ein Terminal im entpackten Artefaktordner:
+**Linux:** Öffnen Sie ein Terminal im Ordner mit der heruntergeladenen Datei:
 
 ```sh
-sudo apt install ./src-tauri/target/release/bundle/deb/Tagryn_0.1.0_amd64.deb
+sudo apt update
+sudo apt install ./Tagryn_0.1.0-alpha.1_linux_amd64.deb
 tagryn
 ```
 
-`apt` installiert die benötigten GTK-/WebKitGTK-Bibliotheken mit. Tagryn lässt sich auch über das Anwendungsmenü starten. Für Fedora, Arch und andere nicht Debian-basierte Systeme ist ein nativer Quellcode-Build nötig. Dieser Release enthält weder RPM, AppImage, Flatpak noch Linux-ARM-Pakete.
+Tagryn lässt sich auch über das Anwendungsmenü starten. Paketbau und Installation wurden auf Ubuntu 22.04 x64 geprüft. Andere Debian-basierte Distributionen benötigen kompatible GTK-/WebKitGTK-Bibliotheken. Für Fedora, Arch und ARM-Systeme gibt es noch keine Release-Pakete; siehe [Aus dem Quellcode bauen](#aus-dem-quellcode-bauen).
 
-Dies sind **unsignierte Entwicklungspakete** mit bestandenen CI-Tests und Builds, aber ohne Installationsabnahme auf frischen Endnutzer-Systemen. Windows kann einen unbekannten Herausgeber oder eine SmartScreen-Warnung anzeigen. Fahren Sie nur fort, wenn Sie diesem Projekt-Download vertrauen; lassen Sie die Schutzfunktionen des Betriebssystems eingeschaltet. Windows benötigt die [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/). Fertige Pakete enthalten ExifTool samt Laufzeit; Node.js, Rust und eine separate Perl-Installation werden nicht benötigt.
+Den Installern liegen [SHA-256-Prüfsummen](https://github.com/franzgollhammer/tagryn/releases/download/v0.1.0-alpha.1/SHA256SUMS.txt) und [Build-Nachweise](https://github.com/franzgollhammer/tagryn/releases/download/v0.1.0-alpha.1/BUILD-INFO.json) bei. Vergleichen Sie den Hash Ihrer Datei mit dem passenden Eintrag: unter macOS mit `shasum -a 256 DATEI`, unter Linux mit `sha256sum DATEI`, in PowerShell mit `Get-FileHash DATEI -Algorithm SHA256`. Ersetzen Sie `DATEI` durch den Dateipfad.
+
+Dies sind **Alpha-Vorschaupakete**. Die nativen Paketprüfungen umfassen Installation beziehungsweise Kopieren, die mitgelieferte Metadaten-Laufzeit und den App-Start auf GitHub-Runnern. Sie belegen keine Notarisierung, Herausgeberreputation oder Kompatibilität mit jedem Endnutzer-System. GitHub zeigt unter den Installern weiterhin „Source code“-Archive an; diese sind zum eigenen Bauen gedacht.
 
 ## Funktionsumfang
 
@@ -152,4 +156,4 @@ Bereichstrenner sind per Tab erreichbar und mit Pfeiltasten verstellbar. Escape 
 - [Ursprünglicher Plan mit drei Architekturvarianten](.claude/plans/2026-09-10-tagryn-desktop.md)
 - [Fremdlizenzen](docs/THIRD-PARTY-NOTICES.md) und [gesammelte Lizenztexte](docs/DEPENDENCY-LICENSES.txt)
 
-Die vollständige Testsuite ist ausschließlich für [GitHub Actions](.github/workflows/verify.yml) vorgesehen. Lokal werden nur ausdrücklich ausgewählte, relevante Tests und nachvollziehbare Durchstichprüfungen ausgeführt. Der Integrationsbranch ist `develop`; `main` wird nicht verwendet. Ein öffentlicher Quellcode-Alpha-Release ist von signierten Installationspaketen zu unterscheiden.
+Die vollständige Testsuite ist ausschließlich für [GitHub Actions](.github/workflows/verify.yml) vorgesehen. Lokal werden nur ausdrücklich ausgewählte, relevante Tests und nachvollziehbare Durchstichprüfungen ausgeführt. Der Integrationsbranch ist `develop`; `main` wird nicht verwendet. Die verfügbaren Alpha-Installer sind von notarisierten beziehungsweise mit einer Herausgeberidentität signierten Produktionspaketen zu unterscheiden.
