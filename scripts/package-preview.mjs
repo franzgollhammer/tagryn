@@ -96,11 +96,15 @@ async function verifyStartup(command, args, profile) {
   });
   let error;
   let stderr = '';
+  let frontendReady = false;
+  let frontendError = false;
   child.on('error', (value) => {
     error = value;
   });
   child.stderr.on('data', (chunk) => {
     stderr = (stderr + chunk).slice(-8192);
+    frontendReady ||= stderr.includes('TAGRYN_READY ');
+    frontendError ||= stderr.includes('Tagryn UI:');
   });
   try {
     let initialized = false;
@@ -111,7 +115,7 @@ async function verifyStartup(command, args, profile) {
       try {
         initialized =
           (await stat(join(profile, 'tagryn.sqlite'))).size > 0 &&
-          stderr.includes('TAGRYN_READY ');
+          frontendReady;
       } catch {
         /* Startup is still in progress. */
       }
@@ -123,7 +127,7 @@ async function verifyStartup(command, args, profile) {
         `Installed app did not initialize its isolated profile: ${stderr}`,
       );
     await sleep(3000);
-    if (stderr.includes('Tagryn UI:'))
+    if (frontendError)
       throw new Error(`Installed frontend reported an error: ${stderr}`);
     if (child.exitCode !== null || child.signalCode !== null)
       throw new Error(
@@ -183,7 +187,7 @@ try {
         '-NoProfile',
         '-NonInteractive',
         '-Command',
-        'Expand-Archive -LiteralPath $env.TAGRYN_ZIP -DestinationPath $env.TAGRYN_EXTRACT',
+        'Expand-Archive -LiteralPath $env:TAGRYN_ZIP -DestinationPath $env:TAGRYN_EXTRACT',
       ],
       {
         env: {
@@ -206,6 +210,55 @@ try {
         'Use a clean packaging worktree; macOS output already exists',
       );
     run('/usr/bin/ditto', [join(bundles, 'macos/Tagryn.app'), app]);
+    // ExifTool does not use Perl's optional DBM bindings. Some CI hosts build
+    // these against Homebrew dylibs, which must not leak into a portable app.
+    const runtimeRoot = join(app, 'Contents/Resources/runtime');
+    const excludedModules = ['DB_File', 'GDBM_File', 'NDBM_File'];
+    async function assertNoDbmImports(directory) {
+      for (const entry of await readdir(directory, { withFileTypes: true })) {
+        const path = join(directory, entry.name);
+        if (entry.isDirectory()) await assertNoDbmImports(path);
+        else if (entry.name.endsWith('.pm') || entry.name === 'exiftool') {
+          if (
+            /\b(?:DB_File|GDBM_File|NDBM_File|dbmopen)\b/.test(
+              await readFile(path, 'utf8'),
+            )
+          )
+            throw new Error(
+              'ExifTool now references a database module; review runtime packaging',
+            );
+        }
+      }
+    }
+    await assertNoDbmImports(join(runtimeRoot, 'exiftool'));
+    const removedModules = [];
+    async function omitOptionalDbm(directory) {
+      for (const entry of await readdir(directory, { withFileTypes: true })) {
+        const path = join(directory, entry.name);
+        if (
+          (entry.isDirectory() &&
+            basename(directory) === 'auto' &&
+            excludedModules.includes(entry.name)) ||
+          (entry.isFile() &&
+            excludedModules.some((name) => entry.name === `${name}.pm`))
+        ) {
+          await rm(path, { recursive: entry.isDirectory() });
+          removedModules.push(path.slice(runtimeRoot.length + 1));
+        } else if (entry.isDirectory()) await omitOptionalDbm(path);
+      }
+    }
+    await omitOptionalDbm(join(runtimeRoot, 'perl/lib'));
+    const runtimeManifestPath = join(runtimeRoot, 'manifest.json');
+    const runtimeManifest = JSON.parse(
+      await readFile(runtimeManifestPath, 'utf8'),
+    );
+    runtimeManifest.previewPackaging = {
+      omittedOptionalDbmFiles: removedModules,
+    };
+    await writeFile(
+      runtimeManifestPath,
+      `${JSON.stringify(runtimeManifest, null, 2)}\n`,
+    );
     for (const binary of [
       'Contents/MacOS/tagryn',
       'Contents/Resources/runtime/perl/bin/perl',
@@ -282,7 +335,7 @@ try {
         '-NoProfile',
         '-NonInteractive',
         '-Command',
-        '$tagrynProcess = Start-Process -FilePath $env.TAGRYN_INSTALLER -ArgumentList @("/S", ("/D=" + $env.TAGRYN_INSTALL_DIR)) -Wait -PassThru; exit $tagrynProcess.ExitCode',
+        '$tagrynProcess = Start-Process -FilePath $env:TAGRYN_INSTALLER -ArgumentList @("/S", ("/D=" + $env:TAGRYN_INSTALL_DIR)) -Wait -PassThru; exit $tagrynProcess.ExitCode',
       ],
       {
         env: {
@@ -321,8 +374,8 @@ try {
     try {
       const runtime = await verifyInstalledRuntime('/usr/lib/Tagryn/runtime');
       const startup = await verifyStartup(
-        'dbus-run-session',
-        ['--', 'xvfb-run', '-a', '/usr/bin/tagryn'],
+        'xvfb-run',
+        ['-a', 'dbus-run-session', '--', '/usr/bin/tagryn'],
         join(temporary, 'profile'),
       );
       verification = {
