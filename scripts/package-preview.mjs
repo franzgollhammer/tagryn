@@ -98,6 +98,7 @@ async function verifyStartup(command, args, profile) {
   let stderr = '';
   let frontendReady = false;
   let frontendError = false;
+  let profileCreated = false;
   child.on('error', (value) => {
     error = value;
   });
@@ -113,19 +114,54 @@ async function verifyStartup(command, args, profile) {
       if (child.exitCode !== null || child.signalCode !== null)
         throw new Error(`Installed app exited during startup: ${stderr}`);
       try {
-        initialized =
-          (await stat(join(profile, 'tagryn.sqlite'))).size > 0 &&
-          frontendReady;
+        profileCreated = (await stat(join(profile, 'tagryn.sqlite'))).size > 0;
+        initialized = profileCreated && frontendReady;
       } catch {
         /* Startup is still in progress. */
       }
       if (initialized) break;
       await sleep(1000);
     }
-    if (!initialized)
+    if (!initialized) {
+      if (platform === 'linux') {
+        const diagnostics = join(root, 'artifacts/preview-diagnostics');
+        await mkdir(diagnostics, { recursive: true });
+        let processInfo = '';
+        try {
+          processInfo = run('ps', ['-axo', 'pid,ppid,stat,comm'])
+            .split('\n')
+            .filter((line) => /tagryn|WebKit|Xvfb|dbus/.test(line))
+            .join('\n');
+          const pid = run('pgrep', ['-x', 'tagryn']).trim().split('\n')[0];
+          const entries = (
+            await readFile(`/proc/${pid}/environ`, 'utf8')
+          ).split('\0');
+          const displayEnv = { ...process.env };
+          for (const key of ['DISPLAY', 'XAUTHORITY']) {
+            const entry = entries.find((value) => value.startsWith(`${key}=`));
+            if (entry) displayEnv[key] = entry.slice(key.length + 1);
+          }
+          run(
+            'import',
+            ['-window', 'root', join(diagnostics, 'linux-startup.png')],
+            { env: displayEnv },
+          );
+        } catch (diagnosticError) {
+          processInfo += `\nDiagnostic capture: ${diagnosticError.message}`;
+        }
+        await writeFile(
+          join(diagnostics, 'linux-startup.json'),
+          JSON.stringify(
+            { profileCreated, frontendReady, stderr, processInfo },
+            null,
+            2,
+          ),
+        );
+      }
       throw new Error(
-        `Installed app did not initialize its isolated profile: ${stderr}`,
+        `Installed app startup timed out (profile=${profileCreated}, frontend=${frontendReady}): ${stderr}`,
       );
+    }
     await sleep(3000);
     if (frontendError)
       throw new Error(`Installed frontend reported an error: ${stderr}`);
@@ -275,17 +311,28 @@ try {
     run('/usr/bin/ditto', [app, join(stage, 'Tagryn.app')]);
     await symlink('/Applications', join(stage, 'Applications'));
     packagePath = join(output, `Tagryn_${version}_macos_${arch}.dmg`);
-    run('/usr/bin/hdiutil', [
-      'create',
-      '-volname',
-      'Tagryn',
-      '-srcfolder',
-      stage,
-      '-format',
-      'UDZO',
-      '-ov',
-      packagePath,
-    ]);
+    for (let attempt = 0; ; attempt++) {
+      try {
+        run('/usr/bin/hdiutil', [
+          'create',
+          '-volname',
+          'Tagryn',
+          '-srcfolder',
+          stage,
+          '-fs',
+          'HFS+',
+          '-format',
+          'UDZO',
+          '-ov',
+          packagePath,
+        ]);
+        break;
+      } catch (error) {
+        if (attempt >= 2 || !String(error.stderr).includes('Resource busy'))
+          throw error;
+        await sleep(3000);
+      }
+    }
     run('/usr/bin/hdiutil', ['verify', packagePath]);
     const mount = join(temporary, 'mounted');
     await mkdir(mount);
