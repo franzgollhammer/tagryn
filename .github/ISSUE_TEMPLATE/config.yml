@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/franzgollhammer/tagryn/discussions
+    about: Ask about setup, workflows, or project direction.
+  - name: Private vulnerability report
+    url: https://github.com/franzgollhammer/tagryn/security/advisories/new
+    about: Report security vulnerabilities without disclosing them publicly.

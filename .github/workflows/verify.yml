@@ -1,0 +1,63 @@
+name: Verify Tagryn
+on:
+  push: {}
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  integrity:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-2025, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: '1.98.1'
+          components: rustfmt
+      - name: Linux desktop libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf
+      - run: npm ci
+      - run: npm run runtime
+      - run: npm run icons
+      - run: npm run licenses
+      - run: npm run fixtures
+      - run: npm run verify:runtime
+      - run: npm run build
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - name: Complete integrity suite (CI only)
+        run: cargo test --manifest-path src-tauri/Cargo.toml --locked -- --test-threads=2
+      - run: npm run test:ci
+      - name: Produce real metadata review session
+        run: cargo run --manifest-path src-tauri/Cargo.toml --example smoke --locked
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+      - name: Build macOS application
+        if: runner.os == 'macOS'
+        run: npm run bundle -- --bundles app
+      - name: Build Windows installer
+        if: runner.os == 'Windows'
+        run: npm run bundle -- --bundles nsis
+      - name: Build Linux package
+        if: runner.os == 'Linux'
+        run: npm run bundle -- --bundles deb
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: tagryn-${{ matrix.os }}
+          path: |
+            src-tauri/target/release/bundle/
+            test-results/
+          retention-days: 14

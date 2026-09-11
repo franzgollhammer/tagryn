@@ -1,0 +1,55 @@
+{
+  "name": "tagryn",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 1420 --strictPort",
+    "check": "vue-tsc --noEmit",
+    "build": "npm run check && vite build",
+    "tauri": "tauri",
+    "desktop": "tauri dev",
+    "bundle": "tauri build",
+    "runtime": "node scripts/prepare-runtime.mjs",
+    "icons": "node scripts/build-icons.mjs",
+    "fixtures": "node scripts/create-fixtures.mjs",
+    "test:ci": "node --test tests/*.test.mjs",
+    "verify:runtime": "node scripts/verify-runtime.mjs",
+    "licenses": "node scripts/collect-licenses.mjs"
+  },
+  "dependencies": {
+    "@lucide/vue": "^1.44.0",
+    "@tanstack/vue-virtual": "3.13.37",
+    "@tauri-apps/api": "2.11.1",
+    "@tauri-apps/plugin-dialog": "2.7.3",
+    "pinia": "4.0.3",
+    "vue": "3.5.42"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/vite": "4.3.3",
+    "@tauri-apps/cli": "2.11.4",
+    "@types/node": "^24.0.0",
+    "@vitejs/plugin-vue": "6.0.8",
+    "prettier": "3.9.6",
+    "sharp": "0.35.4",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3",
+    "vite": "8.2.2",
+    "vue-tsc": "3.3.11"
+  },
+  "license": "MIT",
+  "description": "An offline desktop workbench for file metadata",
+  "author": "Franz Gollhammer",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/franzgollhammer/tagryn.git"
+  },
+  "homepage": "https://github.com/franzgollhammer/tagryn",
+  "bugs": {
+    "url": "https://github.com/franzgollhammer/tagryn/issues"
+  }
+}

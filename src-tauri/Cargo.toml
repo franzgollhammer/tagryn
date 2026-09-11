@@ -1,0 +1,57 @@
+[package]
+name = "tagryn"
+version = "0.1.0"
+description = "An offline metadata workbench"
+license = "MIT"
+authors = ["Franz Gollhammer"]
+repository = "https://github.com/franzgollhammer/tagryn"
+edition = "2021"
+rust-version = "1.98"
+default-run = "tagryn"
+autobins = false
+
+[[bin]]
+name = "tagryn"
+path = "src/main.rs"
+
+[[example]]
+name = "smoke"
+path = "examples/smoke.rs"
+
+[[example]]
+name = "benchmark"
+path = "examples/benchmark.rs"
+
+[[example]]
+name = "camera_check"
+path = "examples/camera_check.rs"
+
+[lib]
+name = "tagryn_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2.11.5", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+tokio = { version = "1", features = ["process", "io-util", "sync", "time", "rt-multi-thread"] }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+base64 = "0.22"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "tiff"] }
+csv = "1"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+strip = true

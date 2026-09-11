@@ -1,0 +1,38 @@
+name: Bug report
+description: Report a reproducible problem with Tagryn.
+body:
+  - type: markdown
+    attributes:
+      value: Use synthetic files or sanitized details. Report vulnerabilities privately through the Security tab.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system and architecture
+      placeholder: macOS 26, Apple Silicon
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include the file format and a minimized synthetic example when possible.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+      description: For write or restore problems, describe the observed file changes and backup state.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs or screenshots
+      description: Remove personal file paths, metadata, GPS data, and credentials first.

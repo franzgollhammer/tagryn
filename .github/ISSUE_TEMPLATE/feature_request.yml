@@ -1,0 +1,21 @@
+name: Feature proposal
+description: Explain a workflow Tagryn could improve.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What workflow is difficult today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Explain how this fits an offline metadata workbench.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and tradeoffs
+      description: Include effects on data integrity, supported formats, and interface complexity.
