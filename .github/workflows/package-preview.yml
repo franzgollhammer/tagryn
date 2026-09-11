@@ -1,0 +1,56 @@
+name: Package preview installers
+on:
+  push:
+    paths:
+      - '.github/workflows/package-preview.yml'
+      - 'scripts/package-preview.mjs'
+      - 'scripts/verify-installed-runtime.mjs'
+  pull_request:
+    paths:
+      - '.github/workflows/package-preview.yml'
+      - 'scripts/package-preview.mjs'
+      - 'scripts/verify-installed-runtime.mjs'
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Successful Verify Tagryn run for the release tag
+        required: true
+        default: '34597693265'
+      release_tag:
+        description: Existing application release tag
+        required: true
+        default: 'v0.1.0-alpha.1'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-2025, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Linux installation test tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb dbus-x11
+      - run: npm ci
+      - run: npm run icons
+      - name: Package and verify installed application
+        run: node scripts/package-preview.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAGRYN_SOURCE_RUN: ${{ inputs.source_run || '34597693265' }}
+          TAGRYN_RELEASE_TAG: ${{ inputs.release_tag || 'v0.1.0-alpha.1' }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: preview-${{ matrix.os }}
+          path: artifacts/preview/
+          if-no-files-found: error
+          retention-days: 14
