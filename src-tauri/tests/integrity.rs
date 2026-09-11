@@ -154,9 +154,12 @@ fn corrupt_and_readonly_files_never_get_written() {
         let plan = f.service.plan(vec![req]).await.unwrap();
         assert!(plan.files[0].error.is_some());
         let corrupt = f.directory.path().join("corrupt.jpg");
-        std::fs::write(&corrupt, b"broken JPEG").unwrap();
+        // Plain text with a .jpg suffix is valid TXT to ExifTool, not a read error.
+        let invalid_bytes = b"\0\xff\0\xffbroken JPEG";
+        std::fs::write(&corrupt, invalid_bytes).unwrap();
         let file = f.service.register(&corrupt).unwrap();
         assert!(f.service.document(&file.id, true).await.is_err());
+        assert_eq!(std::fs::read(&corrupt).unwrap(), invalid_bytes);
         assert!(f.service.document("unopened", true).await.is_err());
         f.service.engine.shutdown().await;
     });

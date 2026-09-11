@@ -74,7 +74,11 @@ await sharp(sample)
   .toFile(join(directory, '24MP-Studiotest.tiff'));
 await writeFile(
   join(directory, 'Beschädigt.jpg'),
-  'This is intentionally not an image. Tagryn must show a read error.',
+  // ExifTool recognizes plain text as TXT even with a .jpg suffix.
+  Buffer.concat([
+    Buffer.from([0x00, 0xff, 0x00, 0xff]),
+    Buffer.from('broken JPEG'),
+  ]),
 );
 console.log(
   `Generated synthetic fixtures (not camera-original benchmarks): ${directory}`,

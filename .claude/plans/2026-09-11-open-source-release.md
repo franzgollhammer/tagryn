@@ -28,6 +28,12 @@ Keep development in a new worktree at `~/dev/worktrees/tagryn/feat-open-source-r
 
 The public repository and source prerelease exist under the requested account, the license is chosen, contributor entry points are functional, and validation results are reported accurately. Production installer readiness is not claimed. If public licensing remains undecided, preserve a reviewable candidate and explicitly request that final decision.
 
+## Initial CI findings and correction
+
+The first full GitHub Actions run failed. On macOS/Linux, `corrupt_and_readonly_files_never_get_written` expected a read error for plain text named `corrupt.jpg`. A focused local rerun reproduced the assertion. Three hypotheses were considered: the fixture was valid text; the engine swallowed an ExifTool error; or the service returned cached data. Direct bundled-ExifTool probes showed that plain text is correctly recognized as TXT with exit status 0, while binary invalid input reports `File format error` with exit status 1. Replacing the fixture with genuinely unrecognized binary content made the existing test pass; the product error handling was unchanged. The generated review fixture now uses the same invalid bytes.
+
+Windows integration-test executables failed before the test harness with `0xc0000139 (STATUS_ENTRYPOINT_NOT_FOUND)`. Ranked causes were a missing Common Controls v6 manifest, a conflicting DLL on PATH, or a missing C++ runtime. Tauri's own documented Windows test failure matches the first cause: https://github.com/tauri-apps/tauri/issues/11028 . Add the Common Controls dependency through MSVC linker arguments scoped to integration-test executables, without changing production manifests. The Windows CI rerun is the verification; a local macOS pass cannot establish a Windows fix.
+
 ## Unresolved questions
 
 - Which license should apply: MIT (recommended), Apache-2.0, or GPL-3.0?
