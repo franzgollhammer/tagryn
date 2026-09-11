@@ -39,7 +39,7 @@ jobs:
           cache: npm
       - name: Linux installation test tools
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y xvfb dbus-x11 imagemagick
+        run: sudo apt-get update && sudo apt-get install -y xvfb dbus-x11 imagemagick openbox
       - run: npm ci
       - run: npm run icons
       - name: Package and verify installed application

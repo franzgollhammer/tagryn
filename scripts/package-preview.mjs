@@ -87,7 +87,7 @@ const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 async function verifyStartup(command, args, profile) {
   const child = spawn(command, args, {
     detached: platform !== 'win32',
-    stdio: ['ignore', 'ignore', 'pipe'],
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: {
       ...process.env,
       TAGRYN_PROFILE_DIR: profile,
@@ -102,11 +102,13 @@ async function verifyStartup(command, args, profile) {
   child.on('error', (value) => {
     error = value;
   });
-  child.stderr.on('data', (chunk) => {
+  const observeOutput = (chunk) => {
     stderr = (stderr + chunk).slice(-8192);
     frontendReady ||= stderr.includes('TAGRYN_READY ');
     frontendError ||= stderr.includes('Tagryn UI:');
-  });
+  };
+  child.stdout.on('data', observeOutput);
+  child.stderr.on('data', observeOutput);
   try {
     let initialized = false;
     for (let attempt = 0; attempt < 30; attempt++) {
@@ -306,33 +308,46 @@ try {
         throw new Error(`Unexpected Mach-O architecture: ${binary}`);
     }
     run(process.execPath, ['scripts/verify-bundle.mjs', '--adhoc-sign']);
-    const stage = join(temporary, 'dmg-stage');
-    await mkdir(stage);
-    run('/usr/bin/ditto', [app, join(stage, 'Tagryn.app')]);
-    await symlink('/Applications', join(stage, 'Applications'));
-    packagePath = join(output, `Tagryn_${version}_macos_${arch}.dmg`);
-    for (let attempt = 0; ; attempt++) {
-      try {
-        run('/usr/bin/hdiutil', [
-          'create',
-          '-volname',
-          'Tagryn',
-          '-srcfolder',
-          stage,
-          '-fs',
-          'HFS+',
-          '-format',
-          'UDZO',
-          '-ov',
-          packagePath,
-        ]);
-        break;
-      } catch (error) {
-        if (attempt >= 2 || !String(error.stderr).includes('Resource busy'))
-          throw error;
-        await sleep(3000);
-      }
+    // Separate image creation, copying, and compression. hdiutil's combined
+    // -srcfolder path can hang or report Resource busy on Intel CI hosts.
+    const writableImage = join(temporary, 'writable.dmg');
+    const writableMount = join(temporary, 'writable-mount');
+    const sizeKiB = Number(run('/usr/bin/du', ['-sk', app]).split(/\s/)[0]);
+    const sizeMiB = Math.ceil((sizeKiB / 1024) * 1.3) + 32;
+    await mkdir(writableMount);
+    run('/usr/bin/hdiutil', [
+      'create',
+      '-size',
+      `${sizeMiB}m`,
+      '-fs',
+      'HFS+',
+      '-volname',
+      'Tagryn',
+      writableImage,
+    ]);
+    run('/usr/bin/hdiutil', [
+      'attach',
+      '-nobrowse',
+      '-mountpoint',
+      writableMount,
+      writableImage,
+    ]);
+    try {
+      run('/usr/bin/ditto', [app, join(writableMount, 'Tagryn.app')]);
+      await symlink('/Applications', join(writableMount, 'Applications'));
+    } finally {
+      run('/usr/bin/hdiutil', ['detach', writableMount]);
     }
+    packagePath = join(output, `Tagryn_${version}_macos_${arch}.dmg`);
+    run('/usr/bin/hdiutil', [
+      'convert',
+      writableImage,
+      '-format',
+      'UDZO',
+      '-ov',
+      '-o',
+      packagePath,
+    ]);
     run('/usr/bin/hdiutil', ['verify', packagePath]);
     const mount = join(temporary, 'mounted');
     await mkdir(mount);
@@ -422,7 +437,14 @@ try {
       const runtime = await verifyInstalledRuntime('/usr/lib/Tagryn/runtime');
       const startup = await verifyStartup(
         'xvfb-run',
-        ['-a', 'dbus-run-session', '--', '/usr/bin/tagryn'],
+        [
+          '-a',
+          'dbus-run-session',
+          '--',
+          'sh',
+          '-c',
+          'openbox --sm-disable >/dev/null 2>&1 & exec /usr/bin/tagryn',
+        ],
         join(temporary, 'profile'),
       );
       verification = {
