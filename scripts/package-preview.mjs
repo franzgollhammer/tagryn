@@ -91,7 +91,10 @@ function diskImage(args) {
   const logPath = join(temporary, 'hdiutil.log');
   const log = openSync(logPath, 'w');
   try {
-    run('/usr/bin/hdiutil', args, { stdio: ['ignore', log, log] });
+    run('/usr/bin/hdiutil', args, {
+      stdio: ['ignore', log, log],
+      timeout: args[0] === 'detach' ? 45000 : 180000,
+    });
   } catch (error) {
     throw new Error(
       `hdiutil ${args[0]} failed: ${error.message}\n${readFileSync(logPath, 'utf8').slice(-8192)}`,
@@ -99,6 +102,18 @@ function diskImage(args) {
     );
   } finally {
     closeSync(log);
+  }
+}
+
+function detachImage(mount) {
+  try {
+    diskImage(['detach', mount]);
+  } catch (error) {
+    if (!/Resource busy|DiskArbitration|ETIMEDOUT/.test(error.message))
+      throw error;
+    // Only our disposable image is mounted here; copying has already finished.
+    // Verification of the compressed image and copied signatures still follows.
+    diskImage(['detach', '-force', mount]);
   }
 }
 
@@ -354,7 +369,7 @@ try {
       run('/usr/bin/ditto', [app, join(writableMount, 'Tagryn.app')]);
       await symlink('/Applications', join(writableMount, 'Applications'));
     } finally {
-      diskImage(['detach', writableMount]);
+      detachImage(writableMount);
     }
     packagePath = join(output, `Tagryn_${version}_macos_${arch}.dmg`);
     diskImage([
@@ -383,7 +398,7 @@ try {
         join(install, 'Tagryn.app'),
       ]);
     } finally {
-      diskImage(['detach', mount]);
+      detachImage(mount);
     }
     const installedApp = join(install, 'Tagryn.app');
     run('/usr/bin/codesign', ['--verify', '--deep', '--strict', installedApp]);
