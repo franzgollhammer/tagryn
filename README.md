@@ -13,36 +13,40 @@ An offline desktop workbench for inspecting, comparing, and deliberately editing
 
 _The native macOS app showing generated test images. The interface supports English and German._
 
-## Source alpha
+## Desktop alpha
 
-Tagryn 0.1.0 is working early software with real file access, write plans, backups, and restoration. The first distribution is a **source alpha**; supported signed installers are a later milestone. See the [verification runs](https://github.com/franzgollhammer/tagryn/actions/workflows/verify.yml) for current CI results and the [release notes](docs/releases/v0.1.0-alpha.1.md) for limitations.
+Tagryn 0.1.0 is early software with real file access, write plans, backups, and restoration. **Preview installers are available for macOS, Windows, and Linux.** macOS packages are ad-hoc signed, without Apple notarization; Windows installers are unsigned. See the [release](https://github.com/franzgollhammer/tagryn/releases/tag/v0.1.0-alpha.1) for verification details and known limits.
 
 Start with disposable copies and keep independent backups. Tagryn does not promise complete anonymization. Original metadata can remain in backups, the local cache, job history, and exports. Read the [data-integrity limits](docs/SAFETY.md) before working with important files.
 
 ## Download and install
 
-The [current release, `v0.1.0-alpha.1`](https://github.com/franzgollhammer/tagryn/releases/tag/v0.1.0-alpha.1), contains **source code only**. GitHub's “Source code (zip)” and “Source code (tar.gz)” downloads are not installers.
+Download **Tagryn v0.1.0-alpha.1** directly from GitHub Releases. These are permanent release assets; no GitHub account or development tools are required. ExifTool and its runtime are included.
 
-For an early preview, the [successful build of this release](https://github.com/franzgollhammer/tagryn/actions/runs/34597693265) has these temporary downloads:
+| System                                      | Download                                                                                                                                   | Install                                                                          |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| macOS 13.3+, Apple Silicon (M-series)       | [Apple Silicon DMG](https://github.com/franzgollhammer/tagryn/releases/download/v0.1.0-alpha.1/Tagryn_0.1.0-alpha.1_macos_arm64.dmg)       | Open the DMG and drag **Tagryn** onto **Applications**.                          |
+| macOS 13.3+, Intel                          | [Intel app ZIP](https://github.com/franzgollhammer/tagryn/releases/download/v0.1.0-alpha.1/Tagryn_0.1.0-alpha.1_macos_x64.zip)             | Extract the ZIP and drag **Tagryn.app** into **Applications**.                   |
+| Windows x64                                 | [Windows installer](https://github.com/franzgollhammer/tagryn/releases/download/v0.1.0-alpha.1/Tagryn_0.1.0-alpha.1_windows_x64-setup.exe) | Open the downloaded `.exe`, follow the installer, then launch Tagryn from Start. |
+| Ubuntu / compatible Debian-based Linux, x64 | [Linux Debian package](https://github.com/franzgollhammer/tagryn/releases/download/v0.1.0-alpha.1/Tagryn_0.1.0-alpha.1_linux_amd64.deb)    | Install the downloaded `.deb` using the commands below.                          |
 
-| System                                      | Available now                  | Installation                                                                                                                                              |
-| ------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Windows x64                                 | Artifact `tagryn-windows-2025` | Extract the ZIP, open `src-tauri/target/release/bundle/nsis/Tagryn_0.1.0_x64-setup.exe`, and follow the installer. Start Tagryn from the Start menu.      |
-| Ubuntu / compatible Debian-based Linux, x64 | Artifact `tagryn-ubuntu-22.04` | Extract the ZIP and install its `.deb` with the command below. The build ran on Ubuntu 22.04; other distributions have not received installation testing. |
-| macOS 13.3+, Apple Silicon or Intel         | [Build locally](#macos)        | The CI `.app` does not yet pass bundle-signature verification. There is no verified macOS installer download yet.                                         |
+**macOS first launch:** If you used a DMG, eject it. Open Tagryn from Applications. Because this alpha is not notarized, macOS may block the first launch. If you trust this download, use **System Settings → Privacy & Security → Open Anyway** after trying to open it, then confirm. This is Apple's [per-app override](https://support.apple.com/en-us/102445); do not disable Gatekeeper globally. To choose the right download, check **Apple menu → About This Mac**: “Chip” means Apple Silicon, “Processor: Intel” means Intel.
 
-Sign in to GitHub, open the linked run, and scroll to **Artifacts** to download the named ZIP. A GitHub account is required for [artifact downloads](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts). These artifacts expire on **September 25, 2026**; if they are unavailable, use the source-build instructions below. Permanent installer downloads are not attached to the release yet.
+**Windows first launch:** The installer has no verified publisher signature, so SmartScreen may warn. If you trust the download and Windows offers the option, choose **More info → Run anyway**. Keep system protections enabled; managed-device policies may prevent an override. Windows also needs the [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/); the installer can download it if missing.
 
-For Linux, open a terminal in the extracted artifact folder:
+**Linux:** In a terminal inside the folder containing your download:
 
 ```sh
-sudo apt install ./src-tauri/target/release/bundle/deb/Tagryn_0.1.0_amd64.deb
+sudo apt update
+sudo apt install ./Tagryn_0.1.0-alpha.1_linux_amd64.deb
 tagryn
 ```
 
-`apt` installs the package's required GTK/WebKitGTK libraries. You can also launch Tagryn from the application menu. Fedora, Arch, and other non-Debian systems need a native source build; this release has no RPM, AppImage, Flatpak, or Linux ARM package.
+You can also launch Tagryn from the application menu. The package was built and installation-tested on Ubuntu 22.04 x64. Other Debian-based distributions need compatible GTK/WebKitGTK libraries. Fedora, Arch, and ARM systems do not have release packages yet; see [Build from source](#build-from-source).
 
-These are **unsigned development packages**, with successful CI tests and builds but no clean-machine installer acceptance. Windows may show an unknown-publisher or SmartScreen warning. Continue only if you trust this project's download; keep operating-system protections enabled. Windows needs the [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/). A compiled package includes ExifTool and its runtime, so Node.js, Rust, and a separate Perl installation are unnecessary.
+[SHA-256 checksums](https://github.com/franzgollhammer/tagryn/releases/download/v0.1.0-alpha.1/SHA256SUMS.txt) and [build provenance](https://github.com/franzgollhammer/tagryn/releases/download/v0.1.0-alpha.1/BUILD-INFO.json) accompany the installers. To compare a downloaded file with its checksum, run `shasum -a 256 FILE` on macOS, `sha256sum FILE` on Linux, or `Get-FileHash FILE -Algorithm SHA256` in PowerShell, replacing `FILE` with its path.
+
+These are **alpha preview packages**. Native packaging checks cover installation/copying, bundled metadata processing, and startup on GitHub runners; they do not establish notarization, publisher reputation, or compatibility with every end-user system. GitHub also lists “Source code” archives below the installers; those are for building the app yourself.
 
 ## What you can do
 
