@@ -60,6 +60,7 @@ pub async fn execute_file(
     if !plan.operations.is_empty() {
         let mut args = vec![
             "-overwrite_original".into(),
+            "-ec".into(),
             "-charset".into(),
             "filename=UTF8".into(),
             "-charset".into(),
@@ -195,6 +196,22 @@ pub async fn execute_file(
     Ok(result)
 }
 
+// -ec decodes UTF-8 bytes after argument parsing, preserving newlines, leading
+// spaces, and literal backslashes without exposing values to a shell/codepage.
+fn escaped_write_value(value: &str) -> Result<String, String> {
+    if value.contains('\0') {
+        return Err("NUL is not a valid metadata value".into());
+    }
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut encoded = String::with_capacity(value.len() * 4);
+    for byte in value.bytes() {
+        encoded.push_str("\\x");
+        encoded.push(char::from(HEX[(byte >> 4) as usize]));
+        encoded.push(char::from(HEX[(byte & 15) as usize]));
+    }
+    Ok(encoded)
+}
+
 fn append_arguments(args: &mut Vec<String>, operation: &WriteOp) -> Result<(), String> {
     if !operation
         .tag
@@ -212,14 +229,14 @@ fn append_arguments(args: &mut Vec<String>, operation: &WriteOp) -> Result<(), S
             args.push(format!(
                 "-{}+={}",
                 operation.tag,
-                value.as_str().ok_or("Expected list of strings")?
+                escaped_write_value(value.as_str().ok_or("Expected list of strings")?)?
             ));
         }
     } else {
         args.push(format!(
             "-{}{raw}={}",
             operation.tag,
-            value_text(&operation.value)
+            escaped_write_value(&value_text(&operation.value))?
         ));
     }
     Ok(())

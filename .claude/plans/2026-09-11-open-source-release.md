@@ -34,6 +34,14 @@ The first full GitHub Actions run failed. On macOS/Linux, `corrupt_and_readonly_
 
 Windows integration-test executables failed before the test harness with `0xc0000139 (STATUS_ENTRYPOINT_NOT_FOUND)`. Ranked causes were a missing Common Controls v6 manifest, a conflicting DLL on PATH, or a missing C++ runtime. Tauri's own documented Windows test failure matches the first cause: https://github.com/tauri-apps/tauri/issues/11028 . The locked `embed-resource` implementation emits the app resource only for binary targets, excluding integration tests and examples. Add the Common Controls dependency through MSVC linker arguments scoped to those development executables, including the CI smoke example, without changing production manifests. The Windows CI rerun is the verification; a local macOS pass cannot establish a Windows fix.
 
+## Windows Unicode correction
+
+The manifest rerun verified all macOS/Linux jobs and the Windows test loader. Windows then reproduced a real write-verification failure for Unicode titles containing a line break. The old engine moved such values from UTF-8 stdin to the launcher's narrow argv, which uses the system codepage. A separate short Windows Actions probe compared the same values: argv changed `Grüße` to `Gr??e`, while UTF-8 argument input plus ExifTool `-ec` preserved all tested bytes, including Japanese text, emoji, shell-like literals, quotes, backslashes, and Unicode filenames. The passed probe is https://github.com/franzgollhammer/tagryn/actions/runs/34597250360 .
+
+Three mechanisms were considered: argv codepage conversion, newline normalization, and command-line parsing. The value comparisons support codepage conversion. Three transport approaches were evaluated: keeping argv (incorrect on Windows), `#[CSTR]` argument lines (the bundled ExifTool changes dollar/at-sign literals), and UTF-8 argument lines with byte-escaped write values through `-ec` (selected). Unix argv remains available for filenames containing actual line breaks. Windows isolated reads also use UTF-8 stdin. No value files or additional unencrypted temporary metadata files are introduced.
+
+A new service-level regression first failed for leading spaces and now checks exact write/read/isolated-read/restore behavior for whitespace, literal escape sequences, Unicode, and line breaks. Each iteration uses a distinct job ID because backup directories are intentionally not overwritten. The original multiline save/restore regression remains part of verification. The complete suite must be rerun on the resulting commit through GitHub Actions.
+
 ## Unresolved questions
 
 - Which license should apply: MIT (recommended), Apache-2.0, or GPL-3.0?

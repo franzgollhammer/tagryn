@@ -51,6 +51,66 @@ fn unicode_multiline_save_preserves_pixels_and_restore_bytes() {
 }
 
 #[test]
+fn literal_text_roundtrips_through_worker_and_isolated_read() {
+    run(async {
+        let f = Fixture::new();
+        let file = f.file("文字 – literal.jpg");
+        for (index, value) in [
+            " Grüße \\n \\r \\x20 @name $value \"quotes\" 東京 🦴 ",
+            "Grüße\n$(not-a-command) <script>\r\nsecond\tline",
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let before = files::fingerprint(Path::new(&file.path)).unwrap();
+            let req = f
+                .request(
+                    &file,
+                    vec![Edit {
+                        field: "title".into(),
+                        value: json!(value),
+                        mode: "replace".into(),
+                    }],
+                )
+                .await;
+            let plan = f.service.plan(vec![req]).await.unwrap();
+            let result = jobs::execute_file(
+                &f.service.engine,
+                &plan.files[0],
+                &format!("literal-{index}"),
+                |_| Ok(()),
+            )
+            .await
+            .unwrap();
+            let doc = f.service.document(&file.id, true).await.unwrap();
+            assert_eq!(
+                metadata::values(&doc.tags, "XMP-dc:Title", "embedded"),
+                json!(value)
+            );
+            let (bytes, _) = f
+                .service
+                .engine
+                .one_shot(&[
+                    "-b".into(),
+                    "-charset".into(),
+                    "filename=UTF8".into(),
+                    "-XMP-dc:Title".into(),
+                    file.path.clone(),
+                ])
+                .await
+                .unwrap();
+            assert_eq!(bytes, value.as_bytes());
+            jobs::restore(&result).unwrap();
+            assert_eq!(
+                files::fingerprint(Path::new(&file.path)).unwrap().sha256,
+                before.sha256
+            );
+        }
+        f.service.engine.shutdown().await;
+    });
+}
+
+#[test]
 fn duplicate_tags_and_numeric_values_are_preserved() {
     run(async {
         let f = Fixture::new();

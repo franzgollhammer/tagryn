@@ -61,7 +61,8 @@ impl Engine {
         if args.iter().any(|a| a.contains('\0')) {
             return Err("NUL is not a valid process argument".into());
         }
-        // The stay-open protocol is line based. Multiline values and filenames use an argv-only isolated request.
+        // Writes encode their values into single lines. Unix filenames may still
+        // require an isolated argv request because they can contain line breaks.
         if args
             .iter()
             .any(|a| a.contains(['\n', '\r']) || a.starts_with('#'))
@@ -131,10 +132,26 @@ impl Engine {
         if args.iter().any(|arg| arg.contains('\0')) {
             return Err("NUL is not a valid process argument".into());
         }
+        cmd.args(["-config", ""]);
+        #[cfg(windows)]
+        let request = {
+            // The Windows launcher uses narrow argv. UTF-8 stdin avoids its
+            // system-codepage conversion, including for isolated preview reads.
+            if args.iter().any(|arg| {
+                arg.is_empty()
+                    || arg.contains(['\r', '\n'])
+                    || arg.starts_with('#')
+                    || arg.starts_with(char::is_whitespace)
+            }) {
+                return Err("Windows ExifTool arguments require nonempty single lines; encode write values with -ec".into());
+            }
+            cmd.args(["-charset", "filename=UTF8", "-@", "-"])
+                .stdin(Stdio::piped());
+            args.join("\n") + "\n"
+        };
+        #[cfg(not(windows))]
+        cmd.args(args).stdin(Stdio::null());
         let mut child = cmd
-            .args(["-config", ""])
-            .args(args)
-            .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true)
@@ -142,9 +159,22 @@ impl Engine {
             .map_err(|e| e.to_string())?;
         let stdout = child.stdout.take().ok_or("ExifTool stdout unavailable")?;
         let stderr = child.stderr.take().ok_or("ExifTool stderr unavailable")?;
+        #[cfg(windows)]
+        let mut input = child.stdin.take().ok_or("ExifTool stdin unavailable")?;
         let outcome = tokio::time::timeout(Duration::from_secs(45), async {
-            let (output, errors) =
-                futures_util::future::try_join(read_bounded(stdout), read_bounded(stderr)).await?;
+            let reading =
+                futures_util::future::try_join(read_bounded(stdout), read_bounded(stderr));
+            #[cfg(windows)]
+            let ((output, errors), ()) = futures_util::future::try_join(reading, async move {
+                input
+                    .write_all(request.as_bytes())
+                    .await
+                    .map_err(|e| e.to_string())?;
+                input.shutdown().await.map_err(|e| e.to_string())
+            })
+            .await?;
+            #[cfg(not(windows))]
+            let (output, errors) = reading.await?;
             let status = child.wait().await.map_err(|e| e.to_string())?;
             Ok::<_, String>((output, errors, status))
         })
