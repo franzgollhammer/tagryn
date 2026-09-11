@@ -4,7 +4,7 @@
 
 An offline desktop workbench for inspecting, comparing, and deliberately editing file metadata. Built with Tauri, Rust, Vue, and ExifTool. Your files stay on your machine. No account, telemetry, or automatic map requests.
 
-[Deutsch](README.de.md) · [Contribute](CONTRIBUTING.md) · [Roadmap](docs/ROADMAP.md) · [Discussions](https://github.com/franzgollhammer/tagryn/discussions) · [Releases](https://github.com/franzgollhammer/tagryn/releases)
+[Download & install](#download-and-install) · [Deutsch](README.de.md) · [Contribute](CONTRIBUTING.md) · [Roadmap](docs/ROADMAP.md) · [Discussions](https://github.com/franzgollhammer/tagryn/discussions) · [Releases](https://github.com/franzgollhammer/tagryn/releases)
 
 [![Verify Tagryn](https://github.com/franzgollhammer/tagryn/actions/workflows/verify.yml/badge.svg?branch=develop)](https://github.com/franzgollhammer/tagryn/actions/workflows/verify.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -19,6 +19,31 @@ Tagryn 0.1.0 is working early software with real file access, write plans, backu
 
 Start with disposable copies and keep independent backups. Tagryn does not promise complete anonymization. Original metadata can remain in backups, the local cache, job history, and exports. Read the [data-integrity limits](docs/SAFETY.md) before working with important files.
 
+## Download and install
+
+The [current release, `v0.1.0-alpha.1`](https://github.com/franzgollhammer/tagryn/releases/tag/v0.1.0-alpha.1), contains **source code only**. GitHub's “Source code (zip)” and “Source code (tar.gz)” downloads are not installers.
+
+For an early preview, the [successful build of this release](https://github.com/franzgollhammer/tagryn/actions/runs/34597693265) has these temporary downloads:
+
+| System                                      | Available now                  | Installation                                                                                                                                              |
+| ------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Windows x64                                 | Artifact `tagryn-windows-2025` | Extract the ZIP, open `src-tauri/target/release/bundle/nsis/Tagryn_0.1.0_x64-setup.exe`, and follow the installer. Start Tagryn from the Start menu.      |
+| Ubuntu / compatible Debian-based Linux, x64 | Artifact `tagryn-ubuntu-22.04` | Extract the ZIP and install its `.deb` with the command below. The build ran on Ubuntu 22.04; other distributions have not received installation testing. |
+| macOS 13.3+, Apple Silicon or Intel         | [Build locally](#macos)        | The CI `.app` does not yet pass bundle-signature verification. There is no verified macOS installer download yet.                                         |
+
+Sign in to GitHub, open the linked run, and scroll to **Artifacts** to download the named ZIP. A GitHub account is required for [artifact downloads](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts). These artifacts expire on **September 25, 2026**; if they are unavailable, use the source-build instructions below. Permanent installer downloads are not attached to the release yet.
+
+For Linux, open a terminal in the extracted artifact folder:
+
+```sh
+sudo apt install ./src-tauri/target/release/bundle/deb/Tagryn_0.1.0_amd64.deb
+tagryn
+```
+
+`apt` installs the package's required GTK/WebKitGTK libraries. You can also launch Tagryn from the application menu. Fedora, Arch, and other non-Debian systems need a native source build; this release has no RPM, AppImage, Flatpak, or Linux ARM package.
+
+These are **unsigned development packages**, with successful CI tests and builds but no clean-machine installer acceptance. Windows may show an unknown-publisher or SmartScreen warning. Continue only if you trust this project's download; keep operating-system protections enabled. Windows needs the [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/). A compiled package includes ExifTool and its runtime, so Node.js, Rust, and a separate Perl installation are unnecessary.
+
 ## What you can do
 
 - **Inspect:** open files or folders, scan recursively, browse a virtualized list or thumbnail grid, search loaded metadata, and inspect raw values with their exact tag identities.
@@ -31,7 +56,7 @@ Read support and write support differ by format. RAW edits use XMP sidecars; emb
 
 ## Build from source
 
-Install Node.js 24 LTS, npm, Rust through rustup, and the [Tauri system prerequisites](https://v2.tauri.app/start/prerequisites/). The repository pins Rust in `rust-toolchain.toml` and dependencies in the lockfiles.
+Build on the operating system and CPU architecture where you will run Tagryn. Install Git, Node.js 24 LTS with npm, Rust through rustup, and the [Tauri system prerequisites](https://v2.tauri.app/start/prerequisites/). The repository pins Rust in `rust-toolchain.toml` and dependencies in the lockfiles.
 
 | Platform    | Additional requirements                                                                                   |
 | ----------- | --------------------------------------------------------------------------------------------------------- |
@@ -39,21 +64,71 @@ Install Node.js 24 LTS, npm, Rust through rustup, and the [Tauri system prerequi
 | Windows x64 | Visual Studio Build Tools with Desktop development with C++, plus WebView2.                               |
 | Linux x64   | Compiler tools and GTK/WebKitGTK 4.1 development libraries. The workflow specifies Ubuntu 22.04 packages. |
 
+On macOS, install the command-line tools with `xcode-select --install`. On Ubuntu 22.04, the build dependencies used by CI are:
+
 ```sh
-git clone https://github.com/franzgollhammer/tagryn.git
+sudo apt update
+sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf
+```
+
+On Windows, select **Desktop development with C++** in Visual Studio Build Tools. Use an x64 MSVC Rust toolchain and a fresh PowerShell window after installing the prerequisites. On other Linux distributions, follow Tauri's distribution-specific prerequisites; the `.deb` command below applies only to Debian-based systems.
+
+Download and prepare the released source with the following commands. They work in a macOS/Linux terminal or Windows PowerShell:
+
+```sh
+git clone --branch v0.1.0-alpha.1 --depth 1 https://github.com/franzgollhammer/tagryn.git
 cd tagryn
 npm ci
 npm run runtime
 npm run icons
 npm run licenses
-npm run desktop
 ```
 
 The first runtime build downloads checksum-pinned packages and compiles private Perl on macOS/Linux. It needs an internet connection and a C compiler. Later app launches and core workflows are offline; no existing ExifTool or Perl installation is required.
 
-`npm run dev` runs the frontend only. Native file access and saving require `npm run desktop`. The browser review mode is read-only, uses generated fixtures, and is excluded from production builds. Use `TAGRYN_PROFILE_DIR` with an absolute path when you need an isolated development profile.
+Choose your platform below to build an installable local package. Run its commands from the `tagryn` folder after completing the shared preparation above. Build output uses version `0.1.0`; the Git tag identifies it as an alpha.
 
-Platform packaging commands and the first save/restore walkthrough are in the [detailed German guide](README.de.md). A compiled app does not need Node.js or Rust. Local builds and CI artifacts are not signed installer releases.
+### macOS
+
+Use a native terminal and toolchain: Apple Silicon builds an ARM64 app, Intel builds an x64 app. There is no universal build.
+
+```sh
+npm run bundle -- --bundles app
+mkdir -p artifacts
+node scripts/verify-bundle.mjs --adhoc-sign
+open src-tauri/target/release/bundle/macos
+```
+
+After verification succeeds, drag **Tagryn.app** from that Finder window into **Applications**, then open it. The script checks the nested runtime and applies a local ad-hoc signature. This is for use on the build machine; it is not an Apple Developer ID signature or notarization for distribution. Repeat the verification after rebuilding.
+
+### Windows
+
+In PowerShell:
+
+```powershell
+npm run bundle -- --bundles nsis
+& ".\src-tauri\target\release\bundle\nsis\Tagryn_0.1.0_x64-setup.exe"
+```
+
+Follow the installer and launch **Tagryn** from the Start menu. The installer is unsigned. Windows ARM64 packages are not currently built.
+
+### Linux
+
+On Ubuntu or a compatible Debian-based x64 system:
+
+```sh
+npm run bundle -- --bundles deb
+sudo apt install ./src-tauri/target/release/bundle/deb/Tagryn_0.1.0_amd64.deb
+tagryn
+```
+
+For another distribution, after installing its Tauri prerequisites and completing the shared preparation, `npm run bundle -- --no-bundle` builds a local executable at `src-tauri/target/release/tagryn`. Run it from that build directory and keep the generated runtime/resources in place. This is a local build, not a system package, and has not received distribution-specific installation testing.
+
+### Development and updates
+
+Use `npm run desktop` to run the native app in development mode without installing it. `npm run dev` runs the frontend only. Native file access and saving require the desktop app. The browser review mode is read-only, uses generated fixtures, and is excluded from production builds. Use `TAGRYN_PROFILE_DIR` with an absolute path when you need an isolated development profile.
+
+Tagryn has no automatic updater. To update, close the app and install a later package or build its release tag in a fresh checkout. The first save/restore walkthrough is in the [detailed German guide](README.de.md#erster-sicherer-arbeitsablauf).
 
 ## Build Tagryn with us
 
