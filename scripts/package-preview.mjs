@@ -93,7 +93,6 @@ function diskImage(args) {
   try {
     run('/usr/bin/hdiutil', args, {
       stdio: ['ignore', log, log],
-      timeout: args[0] === 'detach' ? 45000 : 180000,
     });
   } catch (error) {
     throw new Error(
@@ -102,18 +101,6 @@ function diskImage(args) {
     );
   } finally {
     closeSync(log);
-  }
-}
-
-function detachImage(mount) {
-  try {
-    diskImage(['detach', mount]);
-  } catch (error) {
-    if (!/Resource busy|DiskArbitration|ETIMEDOUT/.test(error.message))
-      throw error;
-    // Only our disposable image is mounted here; copying has already finished.
-    // Verification of the compressed image and copied signatures still follows.
-    diskImage(['detach', '-force', mount]);
   }
 }
 
@@ -341,64 +328,57 @@ try {
         throw new Error(`Unexpected Mach-O architecture: ${binary}`);
     }
     run(process.execPath, ['scripts/verify-bundle.mjs', '--adhoc-sign']);
-    // Separate image creation, copying, and compression. hdiutil's combined
-    // -srcfolder path can hang or report Resource busy on Intel CI hosts.
-    const writableImage = join(temporary, 'writable.dmg');
-    const writableMount = join(temporary, 'writable-mount');
-    const sizeKiB = Number(run('/usr/bin/du', ['-sk', app]).split(/\s/)[0]);
-    const sizeMiB = Math.ceil((sizeKiB / 1024) * 1.3) + 32;
-    await mkdir(writableMount);
-    diskImage([
-      'create',
-      '-size',
-      `${sizeMiB}m`,
-      '-fs',
-      'HFS+',
-      '-volname',
-      'Tagryn',
-      writableImage,
-    ]);
-    diskImage([
-      'attach',
-      '-nobrowse',
-      '-mountpoint',
-      writableMount,
-      writableImage,
-    ]);
-    try {
-      run('/usr/bin/ditto', [app, join(writableMount, 'Tagryn.app')]);
-      await symlink('/Applications', join(writableMount, 'Applications'));
-    } finally {
-      detachImage(writableMount);
-    }
-    packagePath = join(output, `Tagryn_${version}_macos_${arch}.dmg`);
-    diskImage([
-      'convert',
-      writableImage,
-      '-format',
-      'UDZO',
-      '-ov',
-      '-o',
-      packagePath,
-    ]);
-    diskImage(['verify', packagePath]);
-    const mount = join(temporary, 'mounted');
-    await mkdir(mount);
-    diskImage([
-      'attach',
-      '-readonly',
-      '-nobrowse',
-      '-mountpoint',
-      mount,
-      packagePath,
-    ]);
-    try {
+    if (arch === 'x64') {
+      // Intel CI's DiskArbitration service repeatedly times out on DMG eject.
+      // A ditto app archive preserves the sealed bundle without mounting a disk.
+      packagePath = join(output, `Tagryn_${version}_macos_x64.zip`);
       run('/usr/bin/ditto', [
-        join(mount, 'Tagryn.app'),
-        join(install, 'Tagryn.app'),
+        '-c',
+        '-k',
+        '--sequesterRsrc',
+        '--keepParent',
+        app,
+        packagePath,
       ]);
-    } finally {
-      detachImage(mount);
+      run('/usr/bin/ditto', ['-x', '-k', packagePath, install]);
+    } else {
+      const stage = join(temporary, 'dmg-stage');
+      await mkdir(stage);
+      run('/usr/bin/ditto', [app, join(stage, 'Tagryn.app')]);
+      await symlink('/Applications', join(stage, 'Applications'));
+      packagePath = join(output, `Tagryn_${version}_macos_${arch}.dmg`);
+      diskImage([
+        'create',
+        '-volname',
+        'Tagryn',
+        '-srcfolder',
+        stage,
+        '-fs',
+        'HFS+',
+        '-format',
+        'UDZO',
+        '-ov',
+        packagePath,
+      ]);
+      diskImage(['verify', packagePath]);
+      const mount = join(temporary, 'mounted');
+      await mkdir(mount);
+      diskImage([
+        'attach',
+        '-readonly',
+        '-nobrowse',
+        '-mountpoint',
+        mount,
+        packagePath,
+      ]);
+      try {
+        run('/usr/bin/ditto', [
+          join(mount, 'Tagryn.app'),
+          join(install, 'Tagryn.app'),
+        ]);
+      } finally {
+        diskImage(['detach', mount]);
+      }
     }
     const installedApp = join(install, 'Tagryn.app');
     run('/usr/bin/codesign', ['--verify', '--deep', '--strict', installedApp]);
@@ -411,7 +391,9 @@ try {
       join(temporary, 'profile'),
     );
     verification = {
-      diskImageVerified: true,
+      ...(arch === 'x64'
+        ? { appArchiveExtracted: true }
+        : { diskImageVerified: true }),
       copiedBundleSignatureVerified: true,
       signing: 'ad-hoc; no Developer ID or notarization',
       runtime,
