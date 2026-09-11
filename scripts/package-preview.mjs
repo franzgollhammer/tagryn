@@ -1,5 +1,6 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { closeSync, openSync, readFileSync } from 'node:fs';
 import {
   cp,
   mkdir,
@@ -83,6 +84,23 @@ const sha256 = async (path) =>
     .update(await readFile(path))
     .digest('hex');
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+
+// hdiutil/diskimages-helper can hang when child output is a pipe.
+// Keep output in a regular file, as create-dmg's hdiutil wrapper does.
+function diskImage(args) {
+  const logPath = join(temporary, 'hdiutil.log');
+  const log = openSync(logPath, 'w');
+  try {
+    run('/usr/bin/hdiutil', args, { stdio: ['ignore', log, log] });
+  } catch (error) {
+    throw new Error(
+      `hdiutil ${args[0]} failed: ${error.message}\n${readFileSync(logPath, 'utf8').slice(-8192)}`,
+      { cause: error },
+    );
+  } finally {
+    closeSync(log);
+  }
+}
 
 async function verifyStartup(command, args, profile) {
   const child = spawn(command, args, {
@@ -315,7 +333,7 @@ try {
     const sizeKiB = Number(run('/usr/bin/du', ['-sk', app]).split(/\s/)[0]);
     const sizeMiB = Math.ceil((sizeKiB / 1024) * 1.3) + 32;
     await mkdir(writableMount);
-    run('/usr/bin/hdiutil', [
+    diskImage([
       'create',
       '-size',
       `${sizeMiB}m`,
@@ -325,7 +343,7 @@ try {
       'Tagryn',
       writableImage,
     ]);
-    run('/usr/bin/hdiutil', [
+    diskImage([
       'attach',
       '-nobrowse',
       '-mountpoint',
@@ -336,10 +354,10 @@ try {
       run('/usr/bin/ditto', [app, join(writableMount, 'Tagryn.app')]);
       await symlink('/Applications', join(writableMount, 'Applications'));
     } finally {
-      run('/usr/bin/hdiutil', ['detach', writableMount]);
+      diskImage(['detach', writableMount]);
     }
     packagePath = join(output, `Tagryn_${version}_macos_${arch}.dmg`);
-    run('/usr/bin/hdiutil', [
+    diskImage([
       'convert',
       writableImage,
       '-format',
@@ -348,10 +366,10 @@ try {
       '-o',
       packagePath,
     ]);
-    run('/usr/bin/hdiutil', ['verify', packagePath]);
+    diskImage(['verify', packagePath]);
     const mount = join(temporary, 'mounted');
     await mkdir(mount);
-    run('/usr/bin/hdiutil', [
+    diskImage([
       'attach',
       '-readonly',
       '-nobrowse',
@@ -365,7 +383,7 @@ try {
         join(install, 'Tagryn.app'),
       ]);
     } finally {
-      run('/usr/bin/hdiutil', ['detach', mount]);
+      diskImage(['detach', mount]);
     }
     const installedApp = join(install, 'Tagryn.app');
     run('/usr/bin/codesign', ['--verify', '--deep', '--strict', installedApp]);
